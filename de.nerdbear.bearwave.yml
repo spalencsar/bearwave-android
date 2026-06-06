@@ -1,0 +1,36 @@
+Categories:
+  - Multimedia
+  - Internet
+License: GPL-3.0-or-later
+AuthorName: Sebastian Palencsar
+WebSite: https://github.com/spalencsar/bearwave-android
+SourceCode: https://github.com/spalencsar/bearwave-android
+IssueTracker: https://github.com/spalencsar/bearwave-android/issues
+
+Name: BearWave
+Summary: KDE-styled internet radio app
+Description: |-
+  BearWave is a modern internet radio streaming app for Android.
+  It is the official mobile counterpart to the Linux/KDE desktop version.
+
+  Features:
+  * Internet radio via the Radio Browser API
+  * Filter and browse stations by country and tag
+  * Android Auto support
+  * Google Cast support
+  * Dynamic cover art and metadata loading
+
+RepoType: git
+Repo: https://github.com/spalencsar/bearwave-android
+
+Builds:
+  - versionName: 1.0.0
+    versionCode: 1
+    commit: v1.0.0
+    sudo:
+      - apt-get update || true
+      - apt-get install -y openjdk-17-jdk
+    sdk:
+      - flutter
+    gradle:
+      - yes
