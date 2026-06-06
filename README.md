@@ -2,7 +2,7 @@
 
 BearWave is a modern internet radio streaming app for Android, built with Flutter. It features a clean design inspired by the KDE desktop environment, full Android Auto integration, Google Cast support, and dynamic metadata/cover art loading.
 
-This is the mobile port of the desktop Qt6/QML app at https://github.com/spalencsar/bearwave.
+This is the official Android counterpart to the original Linux/KDE desktop version at https://github.com/spalencsar/bearwave.
 
 [![License: GPL--3.0--or--later](https://img.shields.io/badge/license-GPL--3.0--or--later-lightgrey)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.38+-02569B)](https://flutter.dev)
