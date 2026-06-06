@@ -1,0 +1,9 @@
+# Example configuration for key.properties.
+# Copy this file to 'key.properties' in this directory and customize the values.
+# IMPORTANT: Never commit your real key.properties or keystore file to version control.
+# Make sure they are added to your .gitignore.
+
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=YOUR_KEY_ALIAS
+storeFile=../bearwave-release-key.jks

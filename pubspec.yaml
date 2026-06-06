@@ -1,0 +1,52 @@
+name: bearwave
+description: "KDE-focused internet radio app - Android version"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.1.0
+  
+  # Audio
+  just_audio: ^0.9.43
+  audio_service: ^0.18.17
+  
+  # Network
+  http: ^1.3.0
+  
+  # Storage
+  shared_preferences: ^2.5.3
+  
+  # UI
+  cached_network_image: ^3.4.1
+  shimmer: ^3.0.0
+  
+  # State
+  provider: ^6.1.5
+  
+  # Utils
+  cast_plus: ^2.2.0
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/
+    - assets/app/
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  image_path: "assets/app/bearwave.png"
+  adaptive_icon_background: "#0f141b"
+  adaptive_icon_foreground: "assets/app/bearwave.png"
