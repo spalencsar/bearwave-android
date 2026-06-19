@@ -26,15 +26,16 @@ This is the official Android counterpart to the original Linux/KDE desktop versi
 ## Screenshots
 
 <p align="center">
-  <img src="screens/bearwaveandroid_084313.jpg" width="30%" alt="Startseite / Home" />
-  <img src="screens/bearwaveandroid_084347.jpg" width="30%" alt="Player / Now Playing" />
-  <img src="screens/bearwaveandroid_084410.jpg" width="30%" alt="Favoriten / Favorites" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1.jpg" width="30%" alt="Startseite / Home" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2.jpg" width="30%" alt="Player / Now Playing" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3.jpg" width="30%" alt="Favoriten / Favorites" />
 </p>
 <p align="center">
-  <img src="screens/bearwaveandroid_084359.jpg" width="30%" alt="Verlauf / History" />
-  <img src="screens/bearwaveandroid_084323.jpg" width="30%" alt="About / Info" />
-  <img src="screens/bearwaveandroid_084329.jpg" width="30%" alt="License / Lizenz" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4.jpg" width="30%" alt="Verlauf / History" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5.jpg" width="30%" alt="About / Info" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6.jpg" width="30%" alt="License / Lizenz" />
 </p>
+
 
 ## Quick Start
 

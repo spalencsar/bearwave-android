@@ -1,0 +1,9 @@
+BearWave ist eine moderne Internetradio-Streaming-App für Android.
+Sie ist das offizielle Gegenstück zur Linux/KDE-Desktopversion von BearWave.
+
+Features:
+* Webradio über die Radio-Browser API
+* Filtern und Durchsuchen von Sendern nach Land und Tags
+* Android Auto Integration
+* Google Cast / Chromecast Unterstützung
+* Dynamisches Laden von Metadaten und Cover-Bildern
