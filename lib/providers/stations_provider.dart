@@ -24,12 +24,65 @@ class StationsProvider extends ChangeNotifier {
   StationsProvider(this._settings) : _storage = _settings.storageService;
 
   void updateSettings(SettingsProvider settings) {
-    if (_settings.defaultCountry != settings.defaultCountry) {
-      _settings = settings;
-      // When default country changes, you might want to reload if on home screen
-    } else {
-      _settings = settings;
+    final preferChanged = _settings.preferLowBitrate != settings.preferLowBitrate;
+    final connectChanged =
+        _settings.alwaysTryToConnect != settings.alwaysTryToConnect;
+    final wasFilteringOffline = !_settings.alwaysTryToConnect;
+
+    _settings = settings;
+
+    // Re-apply list preferences when data/network toggles change.
+    if (preferChanged || connectChanged) {
+      if (wasFilteringOffline && settings.alwaysTryToConnect) {
+        // Offline stations may have been dropped — reload full list.
+        refresh();
+      } else if (_stations.isNotEmpty) {
+        _applyListPreferences();
+        _syncFavoriteStatus();
+        _applyFilter();
+      }
     }
+  }
+
+  /// Filters/sorts station lists based on data & network settings.
+  ///
+  /// - [SettingsProvider.alwaysTryToConnect] == false: drop stations that
+  ///   failed Radio Browser's last check (`lastcheckok` / [RadioStation.isOnline]).
+  /// - [SettingsProvider.preferLowBitrate] == true: lowest bitrate first
+  ///   (unknown bitrate last) to save mobile data.
+  static List<RadioStation> applyListPreferences(
+    List<RadioStation> stations, {
+    required bool alwaysTryToConnect,
+    required bool preferLowBitrate,
+  }) {
+    var list = List<RadioStation>.from(stations);
+
+    if (!alwaysTryToConnect) {
+      list = list.where((s) => s.isOnline != false).toList();
+    }
+
+    if (preferLowBitrate) {
+      list.sort(_compareBitrateLowFirst);
+    }
+
+    return list;
+  }
+
+  static int _compareBitrateLowFirst(RadioStation a, RadioStation b) {
+    final ba = a.bitrate ?? 0;
+    final bb = b.bitrate ?? 0;
+    if (ba <= 0 && bb <= 0) return 0;
+    if (ba <= 0) return 1; // unknown bitrate last
+    if (bb <= 0) return -1;
+    return ba.compareTo(bb);
+  }
+
+  void _applyListPreferences() {
+    _stations = applyListPreferences(
+      _stations,
+      alwaysTryToConnect: _settings.alwaysTryToConnect,
+      preferLowBitrate: _settings.preferLowBitrate,
+    );
   }
 
   List<RadioStation> get stations => _filteredStations;
@@ -94,10 +147,15 @@ class StationsProvider extends ChangeNotifier {
     _currentOffset = 0;
     _hasMore = true;
     try {
-      _stations = await _currentLoadFn!(_pageSize, _currentOffset);
-      if (_stations.length < _pageSize) _hasMore = false;
+      final loaded = await _currentLoadFn!(_pageSize, _currentOffset);
+      if (loaded.length < _pageSize) _hasMore = false;
       _currentOffset += _pageSize;
-      
+
+      _stations = applyListPreferences(
+        loaded,
+        alwaysTryToConnect: _settings.alwaysTryToConnect,
+        preferLowBitrate: _settings.preferLowBitrate,
+      );
       _syncFavoriteStatus();
       _applyFilter();
       _lastError = '';
@@ -119,7 +177,15 @@ class StationsProvider extends ChangeNotifier {
         _hasMore = false;
       } else {
         if (newStations.length < _pageSize) _hasMore = false;
-        _stations.addAll(newStations);
+        final preferred = applyListPreferences(
+          newStations,
+          alwaysTryToConnect: _settings.alwaysTryToConnect,
+          preferLowBitrate: false, // keep page order; full re-sort below if needed
+        );
+        _stations.addAll(preferred);
+        if (_settings.preferLowBitrate) {
+          _stations.sort(_compareBitrateLowFirst);
+        }
         _currentOffset += _pageSize;
         _syncFavoriteStatus();
         _applyFilter();

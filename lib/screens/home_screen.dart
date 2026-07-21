@@ -60,8 +60,16 @@ class _HomeScreenState extends State<HomeScreen> {
       final defaultStations = await api.getByCountryCode(defaultCountry, limit: 20);
       if (mounted) {
         setState(() {
-          _topStations = top;
-          _defaultCountryStations = defaultStations;
+          _topStations = StationsProvider.applyListPreferences(
+            top,
+            alwaysTryToConnect: _settings.alwaysTryToConnect,
+            preferLowBitrate: _settings.preferLowBitrate,
+          );
+          _defaultCountryStations = StationsProvider.applyListPreferences(
+            defaultStations,
+            alwaysTryToConnect: _settings.alwaysTryToConnect,
+            preferLowBitrate: _settings.preferLowBitrate,
+          );
         });
       }
     } catch (e) {

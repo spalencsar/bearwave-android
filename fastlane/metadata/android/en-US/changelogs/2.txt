@@ -1,0 +1,3 @@
+- Added options to filter out offline stations and sort by low bitrate to save data.
+- Fixed playback issues under Android Auto when pausing or stopping the media stream.
+- Re-apply playback buffer settings only after releasing the slider.

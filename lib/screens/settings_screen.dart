@@ -13,6 +13,9 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  /// Local drag value so buffer is only applied when the user releases the slider.
+  double? _bufferDragValue;
+
   @override
   void initState() {
     super.initState();
@@ -283,17 +286,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                           ),
-                          Text('${settings.playbackBuffer} s', style: const TextStyle(color: BearWaveTheme.textMuted)),
+                          Text(
+                            '${(_bufferDragValue ?? settings.playbackBuffer.toDouble()).round()} s',
+                            style: const TextStyle(color: BearWaveTheme.textMuted),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Slider(
-                        value: settings.playbackBuffer.toDouble(),
+                        value: _bufferDragValue ?? settings.playbackBuffer.toDouble(),
                         min: 10,
                         max: 120,
                         divisions: 110,
                         activeColor: BearWaveTheme.accent,
-                        onChanged: (val) => settings.setPlaybackBuffer(val.toInt()),
+                        // Preview only while dragging — apply on release to avoid
+                        // recreating the AudioPlayer on every tick.
+                        onChanged: (val) {
+                          setState(() => _bufferDragValue = val);
+                        },
+                        onChangeEnd: (val) {
+                          settings.setPlaybackBuffer(val.toInt());
+                          setState(() => _bufferDragValue = null);
+                        },
                       ),
                     ],
                   ),

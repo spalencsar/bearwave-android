@@ -1,7 +1,7 @@
 name: bearwave
 description: "KDE-focused internet radio app - Android version"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.1+2
 
 environment:
   sdk: ^3.12.1
@@ -16,6 +16,7 @@ dependencies:
   # Audio
   just_audio: ^0.9.43
   audio_service: ^0.18.17
+  audio_session: ^0.1.25
   
   # Network
   http: ^1.3.0

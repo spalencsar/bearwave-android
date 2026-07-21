@@ -51,7 +51,9 @@ class PlayerProvider extends ChangeNotifier {
 
   void updateSettings(SettingsProvider settings) {
     _settingsProvider = settings;
-    // We could refetch the cover if the quality changed, but it will update on the next song anyway.
+    // Cover/language etc. are read live from SettingsProvider.
+    // Do not reconfigure the audio handler here — Android Auto is sensitive
+    // to MediaSession changes outside of explicit play/pause/stop.
   }
 
   void _onCastStateChanged() {

@@ -1,0 +1,3 @@
+- Optionen hinzugefügt, um Offline-Sender zu filtern und nach niedriger Bitrate zu sortieren (spart Datenvolumen).
+- Probleme unter Android Auto beim Pausieren oder Stoppen der Wiedergabe behoben.
+- Puffer-Einstellungen werden nun erst beim Loslassen des Schiebereglers angewendet.

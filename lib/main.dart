@@ -21,8 +21,8 @@ void main() async {
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'de.nerdbear.bearwave.channel.audio',
       androidNotificationChannelName: 'BearWave Audio Playback',
-      androidNotificationOngoing: true,
-      androidStopForegroundOnPause: true,
+      androidNotificationOngoing: false,
+      androidStopForegroundOnPause: false,
       androidBrowsableRootExtras: {
         'android.media.browse.SEARCH_SUPPORTED': true,
       },

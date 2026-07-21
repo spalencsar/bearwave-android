@@ -12,6 +12,9 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   RadioStation? _currentStation;
   int _retryAttempts = 0;
   static const int maxRetryAttempts = 5;
+  /// Blocks auto-retry after intentional pause/stop (e.g. Android Auto).
+  bool _heldByUser = false;
+  bool _isLoadingSource = false;
 
   final StorageService _storage = StorageService();
   bool _storageInitialized = false;
@@ -87,6 +90,7 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   Future<void> playStation(RadioStation station) async {
     _currentStation = station;
     _retryAttempts = 0;
+    _heldByUser = false;
 
     final url = station.urlResolved.isNotEmpty
         ? station.urlResolved
@@ -109,24 +113,39 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
     );
 
     try {
+      _isLoadingSource = true;
       await _player.setVolume(1.0);
       await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
       await play();
     } catch (e) {
       _scheduleRetry();
+    } finally {
+      _isLoadingSource = false;
     }
   }
 
   @override
   Future<void> play() async {
+    _heldByUser = false;
+    _retryAttempts = 0;
     if (_currentStation != null && (_player.processingState == ProcessingState.idle || _player.processingState == ProcessingState.completed)) {
       final url = _currentStation!.urlResolved.isNotEmpty
           ? _currentStation!.urlResolved
           : _currentStation!.url;
       if (url.isNotEmpty) {
         try {
+          _isLoadingSource = true;
+          playbackState.add(
+            playbackState.value.copyWith(
+              controls: [MediaControl.pause],
+              processingState: AudioProcessingState.loading,
+              playing: true,
+            ),
+          );
           await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
-        } catch (_) {}
+        } catch (_) {} finally {
+          _isLoadingSource = false;
+        }
       }
     }
     await _player.play();
@@ -134,13 +153,24 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> pause() async {
-    // For live radio streams, stop the player to release resources, prevent socket timeouts,
-    // and save data during network transitions.
+    // Live radio: stop the socket, but mark as user-held so auto-retry does not
+    // restart the stream (that broke Android Auto pause/stop).
+    _heldByUser = true;
+    _retryAttempts = maxRetryAttempts;
     await _player.stop();
+    playbackState.add(
+      playbackState.value.copyWith(
+        controls: [MediaControl.play],
+        processingState: AudioProcessingState.ready,
+        playing: false,
+      ),
+    );
   }
 
   @override
   Future<void> stop() async {
+    _heldByUser = false;
+    _retryAttempts = maxRetryAttempts;
     await _player.stop();
     playbackState.add(
       playbackState.value.copyWith(
@@ -149,6 +179,7 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
         playing: false,
       ),
     );
+    await super.stop();
   }
 
   @override
@@ -422,6 +453,7 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
         if (station.votes != null) 'votes': station.votes!,
         if (station.isOnline != null) 'isOnline': station.isOnline!,
         _contentStylePlayableKey: _contentStyleGrid,
+        // ignore: use_null_aware_elements
         if (groupTitle != null) _groupTitleKey: groupTitle,
       },
     );
@@ -567,10 +599,12 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   double get volume => _player.volume;
 
   void _scheduleRetry() {
+    if (_heldByUser) return;
     if (_currentStation == null || _retryAttempts >= maxRetryAttempts) return;
 
     final delayMs = 1000 * (1 << _retryAttempts); // 1s, 2s, 4s, 8s, 16s
     Future.delayed(Duration(milliseconds: delayMs), () async {
+      if (_heldByUser) return;
       if (!_player.playing && _retryAttempts < maxRetryAttempts) {
         _retryAttempts++;
         final url = _currentStation!.urlResolved.isNotEmpty
@@ -604,15 +638,22 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
           MediaAction.skipToNext,
           MediaAction.skipToPrevious,
           MediaAction.playFromSearch,
+          MediaAction.play,
+          MediaAction.pause,
+          MediaAction.stop,
         },
         androidCompactActionIndices: hasQueue ? const [0, 1, 2] : const [0],
-        processingState: const {
-          ProcessingState.idle: AudioProcessingState.idle,
-          ProcessingState.loading: AudioProcessingState.loading,
-          ProcessingState.buffering: AudioProcessingState.buffering,
-          ProcessingState.ready: AudioProcessingState.ready,
-          ProcessingState.completed: AudioProcessingState.completed,
-        }[_player.processingState]!,
+        processingState: _player.processingState == ProcessingState.idle
+            ? (_isLoadingSource
+                ? AudioProcessingState.loading
+                : (_heldByUser ? AudioProcessingState.ready : AudioProcessingState.idle))
+            : const {
+                ProcessingState.idle: AudioProcessingState.idle,
+                ProcessingState.loading: AudioProcessingState.loading,
+                ProcessingState.buffering: AudioProcessingState.buffering,
+                ProcessingState.ready: AudioProcessingState.ready,
+                ProcessingState.completed: AudioProcessingState.completed,
+              }[_player.processingState]!,
         playing: playing,
         updatePosition: _player.position,
         bufferedPosition: _player.bufferedPosition,

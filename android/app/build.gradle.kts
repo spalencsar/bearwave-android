@@ -34,19 +34,31 @@ android {
             val keystoreProperties = Properties().apply {
                 load(FileInputStream(keystorePropertiesFile))
             }
-            create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+            val keyAliasProp = keystoreProperties.getProperty("keyAlias")
+            val keyPasswordProp = keystoreProperties.getProperty("keyPassword")
+            val storeFileProp = keystoreProperties.getProperty("storeFile")
+            val storePasswordProp = keystoreProperties.getProperty("storePassword")
+            // Only create a release config when every required field is present.
+            // Incomplete/corrupt key.properties must not break debug builds.
+            if (!keyAliasProp.isNullOrBlank() &&
+                !keyPasswordProp.isNullOrBlank() &&
+                !storeFileProp.isNullOrBlank() &&
+                !storePasswordProp.isNullOrBlank()
+            ) {
+                create("release") {
+                    keyAlias = keyAliasProp
+                    keyPassword = keyPasswordProp
+                    // storeFile is relative to this module (android/app/), e.g. ../bearwave-release-key.jks
+                    storeFile = file(storeFileProp)
+                    storePassword = storePasswordProp
+                }
             }
         }
     }
 
     buildTypes {
         release {
-            val keystorePropertiesFile = rootProject.file("key.properties")
-            signingConfig = if (keystorePropertiesFile.exists()) {
+            signingConfig = if (signingConfigs.findByName("release") != null) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
