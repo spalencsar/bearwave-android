@@ -196,6 +196,9 @@ country list for the Flutter catalog and Android Auto.
 - The debug APK builds successfully and has been validated on a Samsung S24 Ultra.
 - The Android Auto playback/control fixes and the 1.1.0 follow-up changes
   passed DHU, Flutter-device, and real-vehicle testing.
+- The 1.1.1 release-only Android Auto resource-retention fix passed analysis,
+  all 44 tests, signed-APK inspection, smartphone testing, and DHU testing.
+  A separate real-vehicle confirmation for 1.1.1 is still pending.
 
 ## Contributing
 

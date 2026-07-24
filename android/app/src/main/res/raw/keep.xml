@@ -1,0 +1,3 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_aa_heart,@drawable/ic_aa_heart_outline,@drawable/ic_aa_history,@drawable/ic_aa_home,@drawable/ic_aa_world" />
