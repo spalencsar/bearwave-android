@@ -5,6 +5,7 @@ import '../providers/player_provider.dart';
 import '../providers/stations_provider.dart';
 import '../theme/bearwave_theme.dart';
 import '../screens/expanded_player_sheet.dart';
+import 'station_logo.dart';
 
 class PlayerBar extends StatelessWidget {
   final VoidCallback? onTap;
@@ -124,10 +125,12 @@ class PlayerBar extends StatelessWidget {
     }
 
     final coverUrl = player.currentCoverUrl;
-    final fallbackUrl = player.currentStation!.favicon;
-    
+
     final bool hasValidCover = coverUrl != null && coverUrl.startsWith('http');
-    final bool hasValidFavicon = fallbackUrl != null && fallbackUrl.startsWith('http');
+    final stationLogo = StationLogo(
+      station: player.currentStation!,
+      borderRadius: 8,
+    );
 
     return Container(
       width: 48,
@@ -138,33 +141,15 @@ class PlayerBar extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: (hasValidCover || hasValidFavicon)
+        child: hasValidCover
             ? CachedNetworkImage(
-                imageUrl: hasValidCover ? coverUrl : fallbackUrl!,
+                imageUrl: coverUrl,
                 fit: BoxFit.cover,
                 memCacheWidth: 150,
-                placeholder: (context, url) => _buildDefaultIcon(),
-                errorWidget: (context, url, error) => _buildDefaultIcon(),
+                placeholder: (context, url) => stationLogo,
+                errorWidget: (context, url, error) => stationLogo,
               )
-            : _buildDefaultIcon(),
-      ),
-    );
-  }
-
-  Widget _buildDefaultIcon() {
-    return Container(
-      color: BearWaveTheme.panel,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Opacity(
-            opacity: 0.5,
-            child: Image.asset(
-              'assets/app/bearwave.png',
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
+            : stationLogo,
       ),
     );
   }

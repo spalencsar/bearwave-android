@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/radio_station.dart';
 import '../theme/bearwave_theme.dart';
+import 'station_logo.dart';
 
 class StationSquareCard extends StatelessWidget {
   final RadioStation station;
@@ -43,21 +43,10 @@ class StationSquareCard extends StatelessWidget {
                     ? Border.all(color: BearWaveTheme.accent, width: 2)
                     : Border.all(color: Colors.white.withValues(alpha: 0.05)),
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(18),
-                child: station.favicon != null && station.favicon!.startsWith('http')
-                    ? CachedNetworkImage(
-                        imageUrl: station.favicon!,
-                        fit: BoxFit.cover,
-                        memCacheWidth: 300,
-                        placeholder: (context, url) => _buildDefaultIcon(),
-                        errorWidget: (context, url, error) => _buildDefaultIcon(),
-                      )
-                    : _buildDefaultIcon(),
-              ),
+              child: StationLogo(station: station, borderRadius: 18),
             ),
             const SizedBox(height: 12),
-            
+
             // Title
             Text(
               station.name.trim(),
@@ -71,7 +60,7 @@ class StationSquareCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
             const SizedBox(height: 4),
-            
+
             // Subtitle
             Text(
               station.country ?? station.tags ?? 'Internet Radio',
@@ -83,24 +72,6 @@ class StationSquareCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDefaultIcon() {
-    return Container(
-      color: BearWaveTheme.card,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Opacity(
-            opacity: 0.5,
-            child: Image.asset(
-              'assets/app/bearwave.png',
-              fit: BoxFit.contain,
-            ),
-          ),
         ),
       ),
     );

@@ -14,14 +14,21 @@ class PlayerProvider extends ChangeNotifier {
   final CastService _castService;
   final CoverArtService _coverArtService;
   SettingsProvider _settingsProvider;
-  
+
   RadioStation? _currentStation;
   bool _isPlaying = false;
   IcyMetadata? _currentIcyMetadata;
   String? _currentCoverUrl;
   bool _wasConnected = false;
 
-  PlayerProvider(this._audioService, this._storage, StationsProvider stationsProvider, this._castService, this._coverArtService, this._settingsProvider) {
+  PlayerProvider(
+    this._audioService,
+    this._storage,
+    StationsProvider stationsProvider,
+    this._castService,
+    this._coverArtService,
+    this._settingsProvider,
+  ) {
     _audioService.player.playingStream.listen((playing) {
       if (!_castService.isConnected) {
         _isPlaying = playing;
@@ -30,21 +37,41 @@ class PlayerProvider extends ChangeNotifier {
     });
 
     _castService.addListener(_onCastStateChanged);
-    
-    _audioService.player.icyMetadataStream.listen((metadata) async {
+
+    _audioService.icyMetadataStream.listen((metadata) async {
       _currentIcyMetadata = metadata;
-      
+
+      final nowPlayingState = _audioService.nowPlayingState;
+      final activeStation = _audioService.currentStation;
+
       // Attempt to fetch cover art if enabled
-      if (metadata != null && metadata.info?.title != null && _settingsProvider.showMetadataCover) {
-        final title = metadata.info!.title!;
-        final url = await _coverArtService.fetchCoverArt(title, _settingsProvider.coverQuality);
+      if (metadata != null &&
+          metadata.info?.title?.trim().isNotEmpty == true &&
+          _settingsProvider.showMetadataCover) {
+        final title = metadata.info!.title!.trim();
+        final sourceRevision = nowPlayingState.sourceRevision;
+        final artworkRevision = nowPlayingState.beginArtworkRequest();
+        final url = await _coverArtService.fetchCoverArt(
+          title,
+          _settingsProvider.coverQuality,
+        );
+        if (!nowPlayingState.isArtworkRequestCurrent(
+              artworkRevision: artworkRevision,
+              sourceRevision: sourceRevision,
+            ) ||
+            !identical(activeStation, _audioService.currentStation)) {
+          return;
+        }
         _currentCoverUrl = url;
-        _audioService.updateCoverArt(url ?? _currentStation?.faviconOrFallbackUrl);
+        _audioService.updateCoverArt(
+          url ?? activeStation?.faviconOrFallbackUrl,
+        );
       } else {
+        nowPlayingState.cancelArtworkRequests();
         _currentCoverUrl = null;
-        _audioService.updateCoverArt(_currentStation?.faviconOrFallbackUrl);
+        _audioService.updateCoverArt(activeStation?.faviconOrFallbackUrl);
       }
-      
+
       notifyListeners();
     });
   }
@@ -80,15 +107,25 @@ class PlayerProvider extends ChangeNotifier {
   BearWaveAudioHandler get audioService => _audioService;
 
   Future<void> playStation(RadioStation station) async {
+    _audioService.nowPlayingState.cancelArtworkRequests();
     _currentStation = station;
-    
+    _currentIcyMetadata = null;
+    _currentCoverUrl = null;
+    notifyListeners();
+
     if (_castService.isConnected) {
       // Cast playback
       if (_audioService.player.playing) {
-        await _audioService.pause(); // Stop local playback if any without destroying the service
+        await _audioService
+            .pause(); // Stop local playback if any without destroying the service
       }
-      final url = station.urlResolved.isNotEmpty ? station.urlResolved : station.url;
-      final artworkUrl = station.favicon != null && station.favicon!.startsWith('http') ? station.favicon! : 'https://raw.githubusercontent.com/spalencsar/bearwave/main/assets/bearwave_logo.png';
+      final url = station.urlResolved.isNotEmpty
+          ? station.urlResolved
+          : station.url;
+      final artworkUrl =
+          station.favicon != null && station.favicon!.startsWith('http')
+          ? station.favicon!
+          : 'https://raw.githubusercontent.com/spalencsar/bearwave/main/assets/bearwave_logo.png';
       await _castService.playStream(url, station.name, artworkUrl);
       _isPlaying = true;
       notifyListeners();
@@ -96,11 +133,14 @@ class PlayerProvider extends ChangeNotifier {
       // Local playback
       await _audioService.playStation(station);
     }
-    
+
     await _storage.recordRecentStation(station);
+    _audioService.notifyRecentStationsChanged();
     await _storage.saveState(
       lastStationName: station.name,
-      lastStationUrl: station.urlResolved.isNotEmpty ? station.urlResolved : station.url,
+      lastStationUrl: station.urlResolved.isNotEmpty
+          ? station.urlResolved
+          : station.url,
       volume: _audioService.volume,
     );
     notifyListeners();
@@ -108,7 +148,7 @@ class PlayerProvider extends ChangeNotifier {
 
   Future<void> togglePlayPause() async {
     if (_currentStation == null) return;
-    
+
     if (_castService.isConnected) {
       if (_isPlaying) {
         _castService.stop();
@@ -131,10 +171,10 @@ class PlayerProvider extends ChangeNotifier {
     if (_castService.isConnected) {
       _castService.stop();
     }
-    
+
     _isPlaying = false;
     _currentStation = null;
-    await _audioService.stop(); // Kill the background service
+    await _audioService.stopAndClose();
     notifyListeners();
   }
 
@@ -142,10 +182,10 @@ class PlayerProvider extends ChangeNotifier {
     if (_castService.isConnected) {
       _castService.setVolume(volume);
     }
-    
+
     // Always update local audioService volume to keep the UI Slider state in sync
     await _audioService.setVolume(volume);
-    
+
     await _storage.saveState(
       lastStationName: _currentStation?.name ?? '',
       lastStationUrl: _currentStation?.urlResolved ?? '',

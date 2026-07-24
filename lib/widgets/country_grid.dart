@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../l10n/country_names.dart';
 import '../models/country.dart';
 import '../theme/bearwave_theme.dart';
 
 class CountryGrid extends StatelessWidget {
   final List<Country> countries;
   final ValueChanged<Country> onCountryTap;
+  final String languageCode;
   final bool compact;
   final ScrollPhysics? physics;
 
@@ -12,6 +14,7 @@ class CountryGrid extends StatelessWidget {
     super.key,
     required this.countries,
     required this.onCountryTap,
+    required this.languageCode,
     this.compact = false,
     this.physics,
   });
@@ -19,7 +22,7 @@ class CountryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final crossAxisCount = compact ? 1 : 2;
-    
+
     return GridView.builder(
       physics: physics,
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
@@ -62,7 +65,11 @@ class CountryGrid extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      country.name,
+                      CountryNames.localizedName(
+                        countryCode: country.code,
+                        languageCode: languageCode,
+                        fallbackName: country.name,
+                      ),
                       style: const TextStyle(
                         color: BearWaveTheme.textMain,
                         fontWeight: FontWeight.bold,

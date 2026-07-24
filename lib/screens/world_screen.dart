@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/country_names.dart';
+import '../models/country.dart';
 import '../providers/stations_provider.dart';
 import '../providers/player_provider.dart';
+import '../providers/settings_provider.dart';
 import '../theme/bearwave_theme.dart';
 import '../widgets/country_grid.dart';
 import '../widgets/station_card.dart';
-import '../models/country.dart';
 import '../widgets/skeletons/country_card_skeleton.dart';
 import '../widgets/skeletons/station_card_skeleton.dart';
 import '../l10n/translations.dart';
@@ -19,7 +21,7 @@ class WorldScreen extends StatefulWidget {
 }
 
 class _WorldScreenState extends State<WorldScreen> {
-  String? _selectedCountry;
+  Country? _selectedCountry;
   String _countrySearchText = '';
   final ScrollController _scrollController = ScrollController();
 
@@ -46,7 +48,7 @@ class _WorldScreenState extends State<WorldScreen> {
 
   void _onCountrySelected(Country country) {
     setState(() {
-      _selectedCountry = country.name;
+      _selectedCountry = country;
     });
     context.read<StationsProvider>().loadByCountryCode(country.code);
   }
@@ -59,39 +61,50 @@ class _WorldScreenState extends State<WorldScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final languageCode = context.watch<SettingsProvider>().language;
+    final selectedCountryName = _selectedCountry == null
+        ? null
+        : CountryNames.localizedName(
+            countryCode: _selectedCountry!.code,
+            languageCode: languageCode,
+            fallbackName: _selectedCountry!.name,
+          );
     return Container(
       decoration: const BoxDecoration(gradient: BearWaveTheme.spaceGradient),
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-        title: Row(
-          children: [
-            Image.asset('assets/app/bearwave.png', height: 24),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _selectedCountry == null
-                    ? Translations.get(context, 'world')
-                    : '${Translations.get(context, 'defaultCountry')}: $_selectedCountry',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+          title: Row(
+            children: [
+              Image.asset('assets/app/bearwave.png', height: 24),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _selectedCountry == null
+                      ? Translations.get(context, 'world')
+                      : '${Translations.get(context, 'defaultCountry')}: $selectedCountryName',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: Colors.transparent,
+          foregroundColor: BearWaveTheme.textMain,
+          elevation: 0,
+          leading: _selectedCountry != null
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: _backToCategories,
+                )
+              : null,
         ),
-        backgroundColor: Colors.transparent,
-        foregroundColor: BearWaveTheme.textMain,
-        elevation: 0,
-        leading: _selectedCountry != null 
-          ? IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: _backToCategories,
-            )
-          : null,
+        body: _selectedCountry != null
+            ? _buildStationList()
+            : _buildCountryGrid(),
       ),
-      body: _selectedCountry != null ? _buildStationList() : _buildCountryGrid(),
-    ));
+    );
   }
 
   Widget _buildCountryGrid() {
@@ -160,8 +173,8 @@ class _WorldScreenState extends State<WorldScreen> {
   }
 
   Widget _buildGrid() {
-    return Consumer<StationsProvider>(
-      builder: (context, provider, child) {
+    return Consumer2<StationsProvider, SettingsProvider>(
+      builder: (context, provider, settings, child) {
         if (provider.lastError.isNotEmpty && provider.countries.isEmpty) {
           return ErrorView(
             errorMessage: provider.lastError,
@@ -185,13 +198,30 @@ class _WorldScreenState extends State<WorldScreen> {
           );
         }
 
-        var countries = provider.countries;
+        final languageCode = settings.language;
+        var countries = List<Country>.from(provider.countries);
+        String displayName(Country country) => CountryNames.localizedName(
+          countryCode: country.code,
+          languageCode: languageCode,
+          fallbackName: country.name,
+        );
         if (_countrySearchText.isNotEmpty) {
-          countries = countries.where((c) =>
-              c.name.toLowerCase().contains(_countrySearchText.toLowerCase()) ||
-              c.code.toLowerCase().contains(_countrySearchText.toLowerCase()))
+          countries = countries
+              .where(
+                (c) =>
+                    displayName(c).toLowerCase().contains(
+                      _countrySearchText.toLowerCase(),
+                    ) ||
+                    c.name.toLowerCase().contains(
+                      _countrySearchText.toLowerCase(),
+                    ) ||
+                    c.code.toLowerCase().contains(
+                      _countrySearchText.toLowerCase(),
+                    ),
+              )
               .toList();
         }
+        countries.sort((a, b) => displayName(a).compareTo(displayName(b)));
 
         if (countries.isEmpty) {
           return Center(
@@ -210,6 +240,7 @@ class _WorldScreenState extends State<WorldScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               countries: countries,
               onCountryTap: _onCountrySelected,
+              languageCode: languageCode,
             ),
           ),
         );
@@ -220,7 +251,8 @@ class _WorldScreenState extends State<WorldScreen> {
   Widget _buildStationList() {
     return Consumer2<StationsProvider, PlayerProvider>(
       builder: (context, stationsProvider, playerProvider, child) {
-        if (stationsProvider.lastError.isNotEmpty && stationsProvider.stations.isEmpty) {
+        if (stationsProvider.lastError.isNotEmpty &&
+            stationsProvider.stations.isEmpty) {
           return ErrorView(
             errorMessage: stationsProvider.lastError,
             onRetry: () => stationsProvider.refresh(),
@@ -253,42 +285,46 @@ class _WorldScreenState extends State<WorldScreen> {
             padding: const EdgeInsets.only(top: 8, bottom: 80),
             itemCount: stations.length + (stationsProvider.hasMore ? 1 : 0),
             itemBuilder: (context, index) {
-            if (index == stations.length) {
-              return const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: StationCardSkeleton(),
-              );
-            }
-            final station = stations[index];
-            final isCurrent = playerProvider.currentStation?.urlResolved == station.urlResolved;
+              if (index == stations.length) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: StationCardSkeleton(),
+                );
+              }
+              final station = stations[index];
+              final isCurrent =
+                  playerProvider.currentStation?.urlResolved ==
+                  station.urlResolved;
 
-            return StationCard(
-              station: station,
-              isCurrent: isCurrent,
-              isPlaying: isCurrent && playerProvider.isPlaying,
-              currentIcyTitle: isCurrent ? playerProvider.currentIcyMetadata?.info?.title : null,
-              onTap: () {
-                if (isCurrent) {
-                  playerProvider.togglePlayPause();
-                } else {
-                  playerProvider.playStation(station);
-                }
-              },
-              onFavoriteTap: () {
-                stationsProvider.toggleFavorite(station);
-              },
-              onPlayTap: () {
-                if (isCurrent) {
-                  playerProvider.togglePlayPause();
-                } else {
-                  playerProvider.playStation(station);
-                }
-              },
-            );
-          },
-        ),
-      );
-    },
-  );
-}
+              return StationCard(
+                station: station,
+                isCurrent: isCurrent,
+                isPlaying: isCurrent && playerProvider.isPlaying,
+                currentIcyTitle: isCurrent
+                    ? playerProvider.currentIcyMetadata?.info?.title
+                    : null,
+                onTap: () {
+                  if (isCurrent) {
+                    playerProvider.togglePlayPause();
+                  } else {
+                    playerProvider.playStation(station);
+                  }
+                },
+                onFavoriteTap: () {
+                  stationsProvider.toggleFavorite(station);
+                },
+                onPlayTap: () {
+                  if (isCurrent) {
+                    playerProvider.togglePlayPause();
+                  } else {
+                    playerProvider.playStation(station);
+                  }
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
 }

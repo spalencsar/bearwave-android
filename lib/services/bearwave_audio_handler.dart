@@ -2,7 +2,13 @@ import 'dart:convert';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
+// rxdart is provided transitively by audio_service and supplies ValueStream.
+// ignore: depend_on_referenced_packages
+import 'package:rxdart/rxdart.dart';
+import '../l10n/country_names.dart';
+import '../models/country.dart';
 import '../models/radio_station.dart';
+import 'now_playing_state.dart';
 import 'radio_browser_api.dart';
 import 'storage_service.dart';
 
@@ -12,18 +18,26 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   RadioStation? _currentStation;
   int _retryAttempts = 0;
   static const int maxRetryAttempts = 5;
-  /// Blocks auto-retry after intentional pause/stop (e.g. Android Auto).
+
+  /// After user/Auto pause or stop, do not auto-retry stream reconnect.
   bool _heldByUser = false;
   bool _isLoadingSource = false;
+  bool _recordPreparedStationOnPlay = false;
+  String? _lastAcceptedIcyTitle;
 
   final StorageService _storage = StorageService();
   bool _storageInitialized = false;
+  final NowPlayingState _nowPlayingState = NowPlayingState();
+  final BehaviorSubject<IcyMetadata?> _icyMetadataSubject =
+      BehaviorSubject.seeded(null);
 
   static const String _folderTopId = 'top';
   static const String _folderWorldId = 'world';
   static const String _folderFavoritesId = 'favorites';
   static const String _folderRecentId = 'recent';
   static const String _stationIdPrefix = 'station:';
+  static const String _customActionFavorite = 'toggle_favorite';
+  static const String _noTitleAvailable = 'Keine Titelinformationen verfügbar';
 
   // Android Auto content style hints
   static const String _groupTitleKey =
@@ -33,21 +47,16 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   static const int _contentStyleGrid = 2;
 
   final Map<String, RadioStation> _stationCache = {};
+  final Map<String, BehaviorSubject<Map<String, dynamic>>>
+  _childrenChangeSubjects = {};
   List<RadioStation> _currentQueue = [];
   int _currentQueueIndex = -1;
-
-  // CustomAction for Favorites in Android Auto
-  static const String _customActionFavorite = 'toggle_favorite';
-  static const MediaControl _favoriteCustomControl = MediaControl(
-    androidIcon: 'drawable/ic_action_heart',
-    label: 'Favorit',
-    action: MediaAction.custom,
-    customAction: CustomMediaAction(name: _customActionFavorite),
-  );
 
   // Expose for UI
   AudioPlayer get player => _player;
   RadioStation? get currentStation => _currentStation;
+  ValueStream<IcyMetadata?> get icyMetadataStream => _icyMetadataSubject.stream;
+  NowPlayingState get nowPlayingState => _nowPlayingState;
 
   BearWaveAudioHandler() {
     _player.playbackEventStream.listen(
@@ -57,21 +66,62 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
       },
     );
 
-    // Update Media Notification when ICY metadata changes
-    _player.icyMetadataStream.listen((metadata) {
-      if (metadata != null && metadata.info?.title != null) {
-        final icyTitle = metadata.info!.title!;
-        final item = mediaItem.value;
-        if (item != null && icyTitle.isNotEmpty) {
-          // ICY title becomes the main title (e.g. "Artist - Track")
-          // The station name stays in the artist field for Android Auto subtitle
-          mediaItem.add(item.copyWith(
-            title: icyTitle,
-            artist: _currentStation?.name ?? item.artist,
-          ));
-        }
-      }
-    });
+    // Publish source-aware ICY metadata. Some Android players briefly repeat
+    // metadata from the previous stream while a new source is loading.
+    _player.icyMetadataStream.listen(_handleIcyMetadata);
+  }
+
+  void _beginNowPlayingSource() {
+    final previousTitle =
+        _lastAcceptedIcyTitle ?? _player.icyMetadata?.info?.title;
+    _nowPlayingState.beginSource(previousTitle);
+    _lastAcceptedIcyTitle = null;
+    _icyMetadataSubject.add(null);
+  }
+
+  void _handleIcyMetadata(IcyMetadata? metadata) {
+    final icyTitle = metadata?.info?.title?.trim();
+    if (icyTitle == null || icyTitle.isEmpty) {
+      _nowPlayingState.markNoMetadata(_lastAcceptedIcyTitle);
+      _lastAcceptedIcyTitle = null;
+      _icyMetadataSubject.add(null);
+      _publishNoMetadata();
+      return;
+    }
+
+    if (!_nowPlayingState.shouldAcceptTitle(icyTitle)) {
+      return;
+    }
+
+    _lastAcceptedIcyTitle = icyTitle;
+    _icyMetadataSubject.add(metadata);
+    final item = mediaItem.value;
+    if (item != null) {
+      // ICY title becomes the main title (e.g. "Artist - Track").
+      // The station name stays visible as the Android Auto subtitle.
+      mediaItem.add(
+        item.copyWith(
+          title: icyTitle,
+          artist: _currentStation?.name ?? item.artist,
+        ),
+      );
+    }
+  }
+
+  void _publishNoMetadata() {
+    final item = mediaItem.value;
+    final station = _currentStation;
+    if (item == null || station == null) {
+      return;
+    }
+
+    mediaItem.add(
+      item.copyWith(
+        title: _noTitleAvailable,
+        artist: station.name,
+        artUri: _getStationImage(station),
+      ),
+    );
   }
 
   void updateCoverArt(String? url) {
@@ -88,9 +138,11 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   Future<void> playStation(RadioStation station) async {
+    _recordPreparedStationOnPlay = false;
     _currentStation = station;
     _retryAttempts = 0;
     _heldByUser = false;
+    _beginNowPlayingSource();
 
     final url = station.urlResolved.isNotEmpty
         ? station.urlResolved
@@ -98,7 +150,9 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
 
     if (url.isEmpty) return;
 
-    final item = _stationToMediaItem(station).copyWith(id: url);
+    final item = _stationToMediaItem(
+      station,
+    ).copyWith(id: url, title: _noTitleAvailable, artist: station.name);
     mediaItem.add(item);
     queue.add([item]);
     _currentQueue = [station];
@@ -126,9 +180,18 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> play() async {
+    if (_recordPreparedStationOnPlay && _currentStation != null) {
+      _recordPreparedStationOnPlay = false;
+      await _ensureStorage();
+      await _storage.recordRecentStation(_currentStation!);
+      _notifyChildrenChanged(_folderRecentId);
+    }
+
     _heldByUser = false;
     _retryAttempts = 0;
-    if (_currentStation != null && (_player.processingState == ProcessingState.idle || _player.processingState == ProcessingState.completed)) {
+    if (_currentStation != null &&
+        (_player.processingState == ProcessingState.idle ||
+            _player.processingState == ProcessingState.completed)) {
       final url = _currentStation!.urlResolved.isNotEmpty
           ? _currentStation!.urlResolved
           : _currentStation!.url;
@@ -137,13 +200,14 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
           _isLoadingSource = true;
           playbackState.add(
             playbackState.value.copyWith(
-              controls: [MediaControl.pause],
+              controls: _mediaControls(playing: true),
               processingState: AudioProcessingState.loading,
               playing: true,
             ),
           );
           await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
-        } catch (_) {} finally {
+        } catch (_) {
+        } finally {
           _isLoadingSource = false;
         }
       }
@@ -153,14 +217,13 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> pause() async {
-    // Live radio: stop the socket, but mark as user-held so auto-retry does not
-    // restart the stream (that broke Android Auto pause/stop).
+    // Live radio: stop socket, but mark held so auto-retry does not restart.
     _heldByUser = true;
     _retryAttempts = maxRetryAttempts;
     await _player.stop();
     playbackState.add(
       playbackState.value.copyWith(
-        controls: [MediaControl.play],
+        controls: _mediaControls(playing: false),
         processingState: AudioProcessingState.ready,
         playing: false,
       ),
@@ -169,16 +232,20 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
 
   @override
   Future<void> stop() async {
-    _heldByUser = false;
+    _heldByUser = true;
     _retryAttempts = maxRetryAttempts;
     await _player.stop();
     playbackState.add(
       playbackState.value.copyWith(
-        controls: [MediaControl.play],
-        processingState: AudioProcessingState.idle,
+        controls: _mediaControls(playing: false),
+        processingState: AudioProcessingState.ready,
         playing: false,
       ),
     );
+  }
+
+  Future<void> stopAndClose() async {
+    await stop();
     await super.stop();
   }
 
@@ -194,6 +261,22 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
       await _storage.init();
       _storageInitialized = true;
     }
+  }
+
+  @override
+  ValueStream<Map<String, dynamic>> subscribeToChildren(String parentMediaId) {
+    return _childrenChangeSubjects.putIfAbsent(
+      parentMediaId,
+      () => BehaviorSubject.seeded(const <String, dynamic>{}),
+    );
+  }
+
+  void _notifyChildrenChanged(String parentMediaId) {
+    _childrenChangeSubjects[parentMediaId]?.add(const <String, dynamic>{});
+  }
+
+  void notifyRecentStationsChanged() {
+    _notifyChildrenChanged(_folderRecentId);
   }
 
   @override
@@ -233,14 +316,20 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
     }
 
     if (parentMediaId == _folderWorldId) {
+      await _storage.reload();
+      final languageCode = _storage.language;
       final countries = await _api.getCountries();
-      // Sort alphabetically by name
-      countries.sort((a, b) => a.name.compareTo(b.name));
-      
+      String displayName(Country country) => CountryNames.localizedName(
+        countryCode: country.code,
+        languageCode: languageCode,
+        fallbackName: country.name,
+      );
+      countries.sort((a, b) => displayName(a).compareTo(displayName(b)));
+
       return countries.map((country) {
         return _folderItem(
           id: 'country:${country.code}',
-          title: country.name,
+          title: displayName(country),
           subtitle: '${country.stationCount} Sender',
           iconDrawable: 'ic_aa_world',
         );
@@ -298,12 +387,46 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
       return;
     }
 
+    await _loadAndroidAutoStation(station, startPlayback: true);
+  }
+
+  @override
+  Future<void> prepareFromMediaId(
+    String mediaId, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    await _ensureStorage();
+
+    final station = await _stationFromMediaId(mediaId, extras: extras);
+    if (station == null) {
+      return;
+    }
+
+    await _loadAndroidAutoStation(station, startPlayback: false);
+  }
+
+  Future<void> _loadAndroidAutoStation(
+    RadioStation station, {
+    required bool startPlayback,
+  }) async {
+    // This method is intentionally used only by MediaBrowser callbacks. The
+    // regular in-app playback path continues to use playStation().
+    _heldByUser = false;
+    _retryAttempts = 0;
     _currentStation = station;
-    // Update queue index if station is in current queue
+    _beginNowPlayingSource();
+
     final idx = _currentQueue.indexWhere(
-        (s) => (s.urlResolved.isNotEmpty ? s.urlResolved : s.url) ==
-                (station.urlResolved.isNotEmpty ? station.urlResolved : station.url));
-    if (idx >= 0) _currentQueueIndex = idx;
+      (s) =>
+          (s.urlResolved.isNotEmpty ? s.urlResolved : s.url) ==
+          (station.urlResolved.isNotEmpty ? station.urlResolved : station.url),
+    );
+    if (idx >= 0) {
+      _currentQueueIndex = idx;
+    } else {
+      _currentQueue = [station];
+      _currentQueueIndex = 0;
+    }
 
     final url = station.urlResolved.isNotEmpty
         ? station.urlResolved
@@ -312,28 +435,70 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
       return;
     }
 
-    final item = _stationToMediaItem(station).copyWith(id: url);
+    await _syncFavoriteStatus(station);
+
+    if (startPlayback) {
+      _recordPreparedStationOnPlay = false;
+      await _ensureStorage();
+      await _storage.recordRecentStation(station);
+      _notifyChildrenChanged(_folderRecentId);
+    } else {
+      _recordPreparedStationOnPlay = true;
+    }
+
+    // Keep the same stable media ID that Android Auto received while browsing.
+    final item = _stationToMediaItem(
+      station,
+    ).copyWith(title: _noTitleAvailable, artist: station.name);
     mediaItem.add(item);
-    queue.add([item]);
+    queue.add(_stationsToMediaItems(_currentQueue));
     playbackState.add(
       playbackState.value.copyWith(
-        controls: [MediaControl.pause],
+        controls: _mediaControls(playing: startPlayback),
         processingState: AudioProcessingState.loading,
-        playing: false,
-        queueIndex: 0,
+        playing: startPlayback,
+        queueIndex: _currentQueueIndex,
       ),
     );
 
-    await _player.setVolume(1.0);
-    await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
-    await play();
+    try {
+      _isLoadingSource = true;
+      await _player.setVolume(1.0);
+      await _player.setAudioSource(AudioSource.uri(Uri.parse(url)));
+      if (startPlayback) {
+        await play();
+      } else {
+        playbackState.add(
+          playbackState.value.copyWith(
+            controls: _mediaControls(playing: false),
+            processingState: AudioProcessingState.ready,
+            playing: false,
+            queueIndex: _currentQueueIndex,
+          ),
+        );
+      }
+    } catch (_) {
+      if (startPlayback) {
+        _scheduleRetry();
+      } else {
+        playbackState.add(
+          playbackState.value.copyWith(
+            controls: _mediaControls(playing: false),
+            processingState: AudioProcessingState.idle,
+            playing: false,
+          ),
+        );
+      }
+    } finally {
+      _isLoadingSource = false;
+    }
   }
 
   @override
   Future<void> playMediaItem(MediaItem mediaItem) async {
     final station = _stationFromMediaItem(mediaItem);
     if (station != null) {
-      await playStation(station);
+      await _loadAndroidAutoStation(station, startPlayback: true);
       return;
     }
     await playFromMediaId(mediaItem.id, mediaItem.extras);
@@ -342,12 +507,26 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> playFromUri(Uri uri, [Map<String, dynamic>? extras]) async {
     final title = extras?['title'] as String? ?? uri.toString();
-    await playStation(
+    await _loadAndroidAutoStation(
       RadioStation(
         name: title,
         url: uri.toString(),
         urlResolved: uri.toString(),
       ),
+      startPlayback: true,
+    );
+  }
+
+  @override
+  Future<void> prepareFromUri(Uri uri, [Map<String, dynamic>? extras]) async {
+    final title = extras?['title'] as String? ?? uri.toString();
+    await _loadAndroidAutoStation(
+      RadioStation(
+        name: title,
+        url: uri.toString(),
+        urlResolved: uri.toString(),
+      ),
+      startPlayback: false,
     );
   }
 
@@ -376,6 +555,18 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
     await playFromMediaId(results.first.id);
   }
 
+  @override
+  Future<void> prepareFromSearch(
+    String query, [
+    Map<String, dynamic>? extras,
+  ]) async {
+    final results = await search(query, extras);
+    if (results.isEmpty) {
+      return;
+    }
+    await prepareFromMediaId(results.first.id, results.first.extras);
+  }
+
   MediaItem _folderItem({
     required String id,
     required String title,
@@ -393,14 +584,21 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
             : 'android.resource://de.nerdbear.bearwave/mipmap/ic_launcher',
       ),
       extras: {
-        'android.media.browse.CONTENT_STYLE_BROWSABLE_HINT': 1,
-        'android.media.browse.CONTENT_STYLE_PLAYABLE_HINT': 2,
+        AndroidContentStyle.browsableHintKey:
+            AndroidContentStyle.categoryGridItemHintValue,
+        AndroidContentStyle.playableHintKey:
+            AndroidContentStyle.gridItemHintValue,
       },
     );
   }
 
-  List<MediaItem> _stationsToMediaItems(List<RadioStation> stations, {String? groupTitle}) {
-    return stations.map((s) => _stationToMediaItem(s, groupTitle: groupTitle)).toList();
+  List<MediaItem> _stationsToMediaItems(
+    List<RadioStation> stations, {
+    String? groupTitle,
+  }) {
+    return stations
+        .map((s) => _stationToMediaItem(s, groupTitle: groupTitle))
+        .toList();
   }
 
   @override
@@ -414,7 +612,8 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> skipToPrevious() async {
     if (_currentQueue.isEmpty) return;
-    final prevIndex = (_currentQueueIndex - 1 + _currentQueue.length) % _currentQueue.length;
+    final prevIndex =
+        (_currentQueueIndex - 1 + _currentQueue.length) % _currentQueue.length;
     _currentQueueIndex = prevIndex;
     await playStation(_currentQueue[prevIndex]);
   }
@@ -453,8 +652,7 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
         if (station.votes != null) 'votes': station.votes!,
         if (station.isOnline != null) 'isOnline': station.isOnline!,
         _contentStylePlayableKey: _contentStyleGrid,
-        // ignore: use_null_aware_elements
-        if (groupTitle != null) _groupTitleKey: groupTitle,
+        _groupTitleKey: ?groupTitle,
       },
     );
   }
@@ -470,11 +668,15 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
     // 2. No favicon available — try Google Favicon Proxy via homepage.
     if (station.homepage != null && station.homepage!.startsWith('http')) {
       final encodedUrl = Uri.encodeComponent(station.homepage!);
-      return Uri.parse('https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=$encodedUrl&size=256');
+      return Uri.parse(
+        'https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=$encodedUrl&size=256',
+      );
     }
 
     // 3. Fallback: BearWave App Logo
-    return Uri.parse('android.resource://de.nerdbear.bearwave/mipmap/ic_launcher');
+    return Uri.parse(
+      'android.resource://de.nerdbear.bearwave/mipmap/ic_launcher',
+    );
   }
 
   String _stationMediaId(RadioStation station) {
@@ -590,6 +792,49 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
     return parts.isEmpty ? 'Internet Radio' : parts.join(' • ');
   }
 
+  List<MediaControl> _mediaControls({required bool playing}) {
+    final hasQueue = _currentQueue.length > 1;
+    return [
+      if (hasQueue) MediaControl.skipToPrevious,
+      if (playing) MediaControl.pause else MediaControl.play,
+      if (hasQueue) MediaControl.skipToNext,
+      if (_currentStation != null)
+        MediaControl(
+          androidIcon: _currentStation!.isFavorite
+              ? 'drawable/ic_aa_heart'
+              : 'drawable/ic_aa_heart_outline',
+          label: _currentStation!.isFavorite
+              ? 'Aus Favoriten entfernen'
+              : 'Zu Favoriten hinzufügen',
+          action: MediaAction.custom,
+          customAction: const CustomMediaAction(name: _customActionFavorite),
+        ),
+    ];
+  }
+
+  Future<void> _syncFavoriteStatus(RadioStation station) async {
+    await _ensureStorage();
+    final favorites = await _storage.loadFavorites();
+    station.isFavorite = favorites.any(
+      (favorite) => _sameStation(favorite, station),
+    );
+  }
+
+  bool _sameStation(RadioStation first, RadioStation second) {
+    if (first.uuid?.isNotEmpty == true &&
+        second.uuid?.isNotEmpty == true &&
+        first.uuid == second.uuid) {
+      return true;
+    }
+    final firstUrl = first.urlResolved.isNotEmpty
+        ? first.urlResolved
+        : first.url;
+    final secondUrl = second.urlResolved.isNotEmpty
+        ? second.urlResolved
+        : second.url;
+    return firstUrl.isNotEmpty && firstUrl == secondUrl;
+  }
+
   // --- End Android Auto ---
 
   Future<void> setVolume(double volume) async {
@@ -627,12 +872,7 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
     final hasQueue = _currentQueue.length > 1;
     playbackState.add(
       playbackState.value.copyWith(
-        controls: [
-          if (hasQueue) MediaControl.skipToPrevious,
-          if (playing) MediaControl.pause else MediaControl.play,
-          if (hasQueue) MediaControl.skipToNext,
-          _favoriteCustomControl,
-        ],
+        controls: _mediaControls(playing: playing),
         systemActions: const {
           MediaAction.seek,
           MediaAction.skipToNext,
@@ -645,8 +885,10 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
         androidCompactActionIndices: hasQueue ? const [0, 1, 2] : const [0],
         processingState: _player.processingState == ProcessingState.idle
             ? (_isLoadingSource
-                ? AudioProcessingState.loading
-                : (_heldByUser ? AudioProcessingState.ready : AudioProcessingState.idle))
+                  ? AudioProcessingState.loading
+                  : (_heldByUser
+                        ? AudioProcessingState.ready
+                        : AudioProcessingState.idle))
             : const {
                 ProcessingState.idle: AudioProcessingState.idle,
                 ProcessingState.loading: AudioProcessingState.loading,
@@ -658,28 +900,41 @@ class BearWaveAudioHandler extends BaseAudioHandler with SeekHandler {
         updatePosition: _player.position,
         bufferedPosition: _player.bufferedPosition,
         speed: _player.speed,
-        queueIndex: event.currentIndex,
+        queueIndex: _currentQueueIndex >= 0
+            ? _currentQueueIndex
+            : event.currentIndex,
       ),
     );
   }
 
   @override
   Future<void> customAction(String name, [Map<String, dynamic>? extras]) async {
-    if (name == _customActionFavorite) {
-      await _toggleFavorite();
+    if (name != _customActionFavorite || _currentStation == null) {
+      return;
     }
-  }
 
-  Future<void> _toggleFavorite() async {
-    if (_currentStation != null) {
-      final favorites = await _storage.loadFavorites();
-      final isFav = favorites.any((s) => s.urlResolved == _currentStation!.urlResolved);
-      if (isFav) {
-        favorites.removeWhere((s) => s.urlResolved == _currentStation!.urlResolved);
-      } else {
-        favorites.add(_currentStation!);
-      }
-      await _storage.saveFavorites(favorites);
+    await _ensureStorage();
+    final favorites = await _storage.loadFavorites();
+    final current = _currentStation!;
+    final wasFavorite = favorites.any(
+      (favorite) => _sameStation(favorite, current),
+    );
+
+    if (wasFavorite) {
+      favorites.removeWhere((favorite) => _sameStation(favorite, current));
+    } else {
+      favorites.add(current);
     }
+    favorites.sort((first, second) => first.name.compareTo(second.name));
+    current.isFavorite = !wasFavorite;
+    await _storage.saveFavorites(favorites);
+
+    playbackState.add(
+      playbackState.value.copyWith(
+        controls: _mediaControls(playing: _player.playing),
+      ),
+    );
+
+    _notifyChildrenChanged(_folderFavoritesId);
   }
 }

@@ -46,4 +46,4 @@ app.*.map.json
 
 # AI Agent configuration files
 AGENTS.md
-
+MEMORY.md

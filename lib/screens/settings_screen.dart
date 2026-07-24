@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../l10n/country_names.dart';
 import '../providers/settings_provider.dart';
 import '../providers/stations_provider.dart';
 import '../theme/bearwave_theme.dart';
@@ -27,7 +28,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     });
   }
 
-  void _showCountryPicker(BuildContext context, StationsProvider stations, SettingsProvider settings) {
+  void _showCountryPicker(
+    BuildContext context,
+    StationsProvider stations,
+    SettingsProvider settings,
+  ) {
     if (stations.countries.isEmpty) return;
 
     showModalBottomSheet(
@@ -73,10 +78,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: const TextStyle(fontSize: 24),
                       ),
                       title: Text(
-                        country.name,
+                        CountryNames.localizedName(
+                          countryCode: country.code,
+                          languageCode: settings.language,
+                          fallbackName: country.name,
+                        ),
                         style: TextStyle(
-                          color: isSelected ? BearWaveTheme.accent : BearWaveTheme.textMain,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? BearWaveTheme.accent
+                              : BearWaveTheme.textMain,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                       trailing: isSelected
@@ -119,9 +132,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: BearWaveTheme.cardBorder),
       ),
-      child: Column(
-        children: children,
-      ),
+      child: Column(children: children),
     );
   }
 
@@ -198,12 +209,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: DropdownButton<String>(
                       value: settings.language,
                       dropdownColor: BearWaveTheme.panel,
-                      style: const TextStyle(color: BearWaveTheme.textMain, fontSize: 16),
-                      icon: const Icon(Icons.arrow_drop_down, color: BearWaveTheme.textMuted),
+                      style: const TextStyle(
+                        color: BearWaveTheme.textMain,
+                        fontSize: 16,
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: BearWaveTheme.textMuted,
+                      ),
                       items: const [
                         DropdownMenuItem(value: 'de', child: Text('Deutsch')),
                         DropdownMenuItem(value: 'en', child: Text('English')),
-                        DropdownMenuItem(value: 'nl', child: Text('Nederlands')),
+                        DropdownMenuItem(
+                          value: 'nl',
+                          child: Text('Nederlands'),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) settings.setLanguage(val);
@@ -219,21 +239,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: BearWaveTheme.accent),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: BearWaveTheme.accent,
+                          ),
                         )
                       : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              BearWaveTheme.getFlagEmoji(settings.defaultCountry),
+                              BearWaveTheme.getFlagEmoji(
+                                settings.defaultCountry,
+                              ),
                               style: const TextStyle(fontSize: 20),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               settings.defaultCountry,
-                              style: const TextStyle(color: BearWaveTheme.textMain, fontSize: 16),
+                              style: const TextStyle(
+                                color: BearWaveTheme.textMain,
+                                fontSize: 16,
+                              ),
                             ),
-                            const Icon(Icons.chevron_right, color: BearWaveTheme.textMuted),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: BearWaveTheme.textMuted,
+                            ),
                           ],
                         ),
                   onTap: () => _showCountryPicker(context, stations, settings),
@@ -268,7 +299,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 _buildDivider(),
                 Padding(
-                  padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 8),
+                  padding: const EdgeInsets.only(
+                    left: 16,
+                    right: 16,
+                    top: 12,
+                    bottom: 8,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -288,13 +324,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           Text(
                             '${(_bufferDragValue ?? settings.playbackBuffer.toDouble()).round()} s',
-                            style: const TextStyle(color: BearWaveTheme.textMuted),
+                            style: const TextStyle(
+                              color: BearWaveTheme.textMuted,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Slider(
-                        value: _bufferDragValue ?? settings.playbackBuffer.toDouble(),
+                        value:
+                            _bufferDragValue ??
+                            settings.playbackBuffer.toDouble(),
                         min: 10,
                         max: 120,
                         divisions: 110,
@@ -337,12 +377,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: DropdownButton<String>(
                       value: settings.coverQuality,
                       dropdownColor: BearWaveTheme.panel,
-                      style: const TextStyle(color: BearWaveTheme.textMain, fontSize: 16),
-                      icon: const Icon(Icons.arrow_drop_down, color: BearWaveTheme.textMuted),
+                      style: const TextStyle(
+                        color: BearWaveTheme.textMain,
+                        fontSize: 16,
+                      ),
+                      icon: const Icon(
+                        Icons.arrow_drop_down,
+                        color: BearWaveTheme.textMuted,
+                      ),
                       items: [
-                        DropdownMenuItem(value: 'low', child: Text(Translations.get(context, 'coverQualityLow'))),
-                        DropdownMenuItem(value: 'medium', child: Text(Translations.get(context, 'coverQualityMedium'))),
-                        DropdownMenuItem(value: 'high', child: Text(Translations.get(context, 'coverQualityHigh'))),
+                        DropdownMenuItem(
+                          value: 'low',
+                          child: Text(
+                            Translations.get(context, 'coverQualityLow'),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'medium',
+                          child: Text(
+                            Translations.get(context, 'coverQualityMedium'),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'high',
+                          child: Text(
+                            Translations.get(context, 'coverQualityHigh'),
+                          ),
+                        ),
                       ],
                       onChanged: (val) {
                         if (val != null) settings.setCoverQuality(val);
@@ -374,7 +435,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 32),
           ],
         ),

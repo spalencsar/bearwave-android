@@ -1,8 +1,7 @@
-
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import '../models/radio_station.dart';
 import '../theme/bearwave_theme.dart';
+import 'station_logo.dart';
 
 class StationCard extends StatelessWidget {
   final RadioStation station;
@@ -32,9 +31,7 @@ class StationCard extends StatelessWidget {
         color: BearWaveTheme.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isCurrent
-              ? BearWaveTheme.accent
-              : BearWaveTheme.cardBorder,
+          color: isCurrent ? BearWaveTheme.accent : BearWaveTheme.cardBorder,
           width: isCurrent ? 1.5 : 1,
         ),
         boxShadow: isCurrent
@@ -62,56 +59,55 @@ class StationCard extends StatelessWidget {
             highlightColor: BearWaveTheme.accent.withValues(alpha: 0.1),
             splashColor: BearWaveTheme.accent.withValues(alpha: 0.2),
             child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    _buildFavicon(),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            (isCurrent &&
-                                    currentIcyTitle != null &&
-                                    currentIcyTitle!.isNotEmpty)
-                                ? currentIcyTitle!
-                                : station.name,
-                            style: TextStyle(
-                              color: isCurrent
-                                  ? BearWaveTheme.accent
-                                  : BearWaveTheme.textMain,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  _buildFavicon(),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (isCurrent &&
+                                  currentIcyTitle != null &&
+                                  currentIcyTitle!.isNotEmpty)
+                              ? currentIcyTitle!
+                              : station.name,
+                          style: TextStyle(
+                            color: isCurrent
+                                ? BearWaveTheme.accent
+                                : BearWaveTheme.textMain,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _buildSubtitle(),
-                            style: const TextStyle(
-                              color: BearWaveTheme.textMuted,
-                              fontSize: 13,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _buildSubtitle(),
+                          style: const TextStyle(
+                            color: BearWaveTheme.textMuted,
+                            fontSize: 13,
                           ),
-                        ],
-                      ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
                     ),
-                    _buildControls(),
-                  ],
-                ),
+                  ),
+                  _buildControls(),
+                ],
               ),
             ),
           ),
         ),
+      ),
     );
   }
 
   Widget _buildFavicon() {
-    final logoUrl = station.faviconOrFallbackUrl;
     return Container(
       width: 56,
       height: 56,
@@ -128,33 +124,7 @@ class StationCard extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: logoUrl != null && logoUrl.startsWith('http')
-            ? CachedNetworkImage(
-                imageUrl: logoUrl,
-                fit: BoxFit.contain, // Fit contain is better for logos
-                memCacheWidth: 150,
-                placeholder: (context, url) => _buildDefaultIcon(),
-                errorWidget: (context, url, error) => _buildDefaultIcon(),
-              )
-            : _buildDefaultIcon(),
-      ),
-    );
-  }
-
-  Widget _buildDefaultIcon() {
-    return Container(
-      color: BearWaveTheme.panel,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: Opacity(
-            opacity: 0.5,
-            child: Image.asset(
-              'assets/app/bearwave.png',
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
+        child: StationLogo(station: station),
       ),
     );
   }
@@ -187,9 +157,7 @@ class StationCard extends StatelessWidget {
               (isCurrent && isPlaying)
                   ? Icons.pause_rounded
                   : Icons.play_arrow_rounded,
-              color: isCurrent
-                  ? BearWaveTheme.accent
-                  : BearWaveTheme.textMain,
+              color: isCurrent ? BearWaveTheme.accent : BearWaveTheme.textMain,
               size: 28,
             ),
           ),

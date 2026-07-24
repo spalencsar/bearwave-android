@@ -25,6 +25,11 @@ void main() async {
       androidStopForegroundOnPause: false,
       androidBrowsableRootExtras: {
         'android.media.browse.SEARCH_SUPPORTED': true,
+        AndroidContentStyle.supportedKey: true,
+        AndroidContentStyle.browsableHintKey:
+            AndroidContentStyle.categoryGridItemHintValue,
+        AndroidContentStyle.playableHintKey:
+            AndroidContentStyle.gridItemHintValue,
       },
     ),
   );
@@ -32,20 +37,22 @@ void main() async {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(
-          create: (_) => CastService(),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => SettingsProvider(storageService),
-        ),
-        Provider(
-          create: (_) => CoverArtService(),
-        ),
+        ChangeNotifierProvider(create: (_) => CastService()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider(storageService)),
+        Provider(create: (_) => CoverArtService()),
         ChangeNotifierProxyProvider<SettingsProvider, StationsProvider>(
-          create: (context) => StationsProvider(Provider.of<SettingsProvider>(context, listen: false)),
-          update: (context, settings, previous) => previous!..updateSettings(settings),
+          create: (context) => StationsProvider(
+            Provider.of<SettingsProvider>(context, listen: false),
+          ),
+          update: (context, settings, previous) =>
+              previous!..updateSettings(settings),
         ),
-        ChangeNotifierProxyProvider3<StationsProvider, CastService, SettingsProvider, PlayerProvider>(
+        ChangeNotifierProxyProvider3<
+          StationsProvider,
+          CastService,
+          SettingsProvider,
+          PlayerProvider
+        >(
           create: (context) => PlayerProvider(
             audioHandler,
             storageService,
@@ -54,7 +61,8 @@ void main() async {
             context.read<CoverArtService>(),
             context.read<SettingsProvider>(),
           ),
-          update: (context, stations, castService, settings, previous) => previous!..updateSettings(settings),
+          update: (context, stations, castService, settings, previous) =>
+              previous!..updateSettings(settings),
         ),
       ],
       child: const BearWaveApp(),

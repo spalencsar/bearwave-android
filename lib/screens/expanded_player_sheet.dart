@@ -7,6 +7,7 @@ import '../models/radio_station.dart';
 import '../services/cast_service.dart';
 import '../theme/bearwave_theme.dart';
 import '../widgets/cast_dialog.dart';
+import '../widgets/station_logo.dart';
 
 class ExpandedPlayerSheet extends StatelessWidget {
   const ExpandedPlayerSheet({super.key});
@@ -45,7 +46,9 @@ class ExpandedPlayerSheet extends StatelessWidget {
                 builder: (context, castService, child) {
                   return IconButton(
                     icon: Icon(
-                      castService.isConnected ? Icons.cast_connected : Icons.cast,
+                      castService.isConnected
+                          ? Icons.cast_connected
+                          : Icons.cast,
                       color: castService.isConnected
                           ? BearWaveTheme.accent
                           : Colors.white.withValues(alpha: 0.7),
@@ -76,7 +79,10 @@ class ExpandedPlayerSheet extends StatelessWidget {
                         minHeight: constraints.maxHeight,
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 32,
+                          vertical: 16,
+                        ),
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
@@ -85,12 +91,15 @@ class ExpandedPlayerSheet extends StatelessWidget {
                               tag: 'player_artwork',
                               child: Container(
                                 width: MediaQuery.of(context).size.width * 0.65,
-                                height: MediaQuery.of(context).size.width * 0.65,
+                                height:
+                                    MediaQuery.of(context).size.width * 0.65,
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(24),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.5),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.5,
+                                      ),
                                       blurRadius: 40,
                                       offset: const Offset(0, 20),
                                     ),
@@ -109,16 +118,17 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                 ),
                               ),
                             ),
-        
+
                             const SizedBox(height: 24),
-        
+
                             // Title, Subtitle and Favorite row
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         displayTitle,
@@ -135,7 +145,8 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                       Text(
                                         displaySubtitle,
                                         style: TextStyle(
-                                          color: BearWaveTheme.textMuted.withValues(alpha: 0.9),
+                                          color: BearWaveTheme.textMuted
+                                              .withValues(alpha: 0.9),
                                           fontSize: 16,
                                           fontWeight: FontWeight.w500,
                                         ),
@@ -146,9 +157,12 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                   ),
                                 ),
                                 IconButton(
-                                  onPressed: () => stationsProvider.toggleFavorite(station),
+                                  onPressed: () =>
+                                      stationsProvider.toggleFavorite(station),
                                   icon: Icon(
-                                    isFavorite ? Icons.favorite : Icons.favorite_border,
+                                    isFavorite
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
                                   ),
                                   color: isFavorite
                                       ? BearWaveTheme.accent
@@ -157,19 +171,28 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                 ),
                               ],
                             ),
-        
+
                             const SizedBox(height: 32),
-        
+
                             // "LIVE" indicator and Cast
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: BearWaveTheme.accent.withValues(alpha: 0.2),
+                                    color: BearWaveTheme.accent.withValues(
+                                      alpha: 0.2,
+                                    ),
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: BearWaveTheme.accent.withValues(alpha: 0.5)),
+                                    border: Border.all(
+                                      color: BearWaveTheme.accent.withValues(
+                                        alpha: 0.5,
+                                      ),
+                                    ),
                                   ),
                                   child: const Text(
                                     'LIVE RADIO',
@@ -197,7 +220,8 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                         showModalBottomSheet(
                                           context: context,
                                           backgroundColor: Colors.transparent,
-                                          builder: (context) => const CastDialog(),
+                                          builder: (context) =>
+                                              const CastDialog(),
                                         );
                                       },
                                     );
@@ -205,9 +229,9 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                 ),
                               ],
                             ),
-        
+
                             const SizedBox(height: 24),
-        
+
                             // Main Controls Row
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
@@ -234,9 +258,8 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                       shape: BoxShape.circle,
                                       boxShadow: [
                                         BoxShadow(
-                                          color: BearWaveTheme.accent.withValues(
-                                            alpha: 0.4,
-                                          ),
+                                          color: BearWaveTheme.accent
+                                              .withValues(alpha: 0.4),
                                           blurRadius: 20,
                                           offset: const Offset(0, 8),
                                         ),
@@ -254,16 +277,17 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                 const SizedBox(width: 32),
                                 // Share or Info Button
                                 IconButton(
-                                  onPressed: () {}, // Future: Share functionality
+                                  onPressed:
+                                      () {}, // Future: Share functionality
                                   icon: const Icon(Icons.share_rounded),
                                   color: BearWaveTheme.textMuted,
                                   iconSize: 32,
                                 ),
                               ],
                             ),
-        
+
                             const SizedBox(height: 24),
-        
+
                             // Volume Slider
                             Row(
                               children: [
@@ -277,11 +301,12 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                   child: SliderTheme(
                                     data: SliderTheme.of(context).copyWith(
                                       activeTrackColor: Colors.white,
-                                      inactiveTrackColor: Colors.white.withValues(
-                                        alpha: 0.2,
-                                      ),
+                                      inactiveTrackColor: Colors.white
+                                          .withValues(alpha: 0.2),
                                       thumbColor: Colors.white,
-                                      overlayColor: Colors.white.withValues(alpha: 0.1),
+                                      overlayColor: Colors.white.withValues(
+                                        alpha: 0.1,
+                                      ),
                                       trackHeight: 3,
                                       thumbShape: const RoundSliderThumbShape(
                                         enabledThumbRadius: 6,
@@ -291,7 +316,8 @@ class ExpandedPlayerSheet extends StatelessWidget {
                                       value: player.volume,
                                       min: 0.0,
                                       max: 1.0,
-                                      onChanged: (value) => player.setVolume(value),
+                                      onChanged: (value) =>
+                                          player.setVolume(value),
                                     ),
                                   ),
                                 ),
@@ -320,44 +346,24 @@ class ExpandedPlayerSheet extends StatelessWidget {
 
   Widget _buildArtwork(PlayerProvider player, RadioStation station) {
     final coverUrl = player.currentCoverUrl;
-    final fallbackUrl = station.faviconOrFallbackUrl;
-    
     final bool hasValidCover = coverUrl != null && coverUrl.startsWith('http');
-    final bool hasValidFavicon = fallbackUrl != null && fallbackUrl.startsWith('http');
+    final stationLogo = StationLogo(station: station, borderRadius: 24);
 
     return ClipRRect(
-      key: ValueKey(hasValidCover ? coverUrl : fallbackUrl),
+      key: ValueKey(hasValidCover ? coverUrl : station.faviconOrFallbackUrl),
       borderRadius: BorderRadius.circular(24),
       child: SizedBox(
         width: double.infinity,
         height: double.infinity,
-        child: (hasValidCover || hasValidFavicon)
+        child: hasValidCover
             ? CachedNetworkImage(
-                imageUrl: hasValidCover ? coverUrl : fallbackUrl!,
-                fit: BoxFit.contain, // Fit contain is better for logos to avoid cropping
+                imageUrl: coverUrl,
+                fit: BoxFit.contain,
                 memCacheWidth: 600,
-                placeholder: (context, url) => _buildDefaultIcon(),
-                errorWidget: (context, url, error) => _buildDefaultIcon(),
+                placeholder: (context, url) => stationLogo,
+                errorWidget: (context, url, error) => stationLogo,
               )
-            : _buildDefaultIcon(),
-      ),
-    );
-  }
-
-  Widget _buildDefaultIcon() {
-    return Container(
-      color: BearWaveTheme.panel,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48.0),
-          child: Opacity(
-            opacity: 0.5,
-            child: Image.asset(
-              'assets/app/bearwave.png',
-              fit: BoxFit.contain,
-            ),
-          ),
-        ),
+            : stationLogo,
       ),
     );
   }

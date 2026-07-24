@@ -23,6 +23,7 @@ This security policy applies to:
 
 - The BearWave Android Flutter application
 - API communications with radio-browser.info
+- Station-homepage and artwork discovery
 - Background audio and Android Auto MediaBrowserService behavior
 - Google Cast discovery and Cast session control
 - Local data storage (SharedPreferences)
@@ -30,8 +31,14 @@ This security policy applies to:
 ## Best Practices
 
 - The app does not collect or transmit personal data
-- All API communication uses HTTPS
-- Internet radio stream URLs are loaded from Radio Browser or user-added stations
+- Radio Browser API communication and dynamically discovered API-node requests
+  use HTTPS; discovered node names are restricted to
+  `*.api.radio-browser.info`
+- Internet radio streams and station homepages may use HTTP when supplied that
+  way by Radio Browser or the user
+- Homepage artwork discovery bounds response sizes, timeouts, redirects, and
+  concurrency, and rejects redirects to literal local/private addresses
 - Cast device discovery stays on the local network
 - No secrets or API keys are hardcoded
-- Local storage is limited to app preferences only
+- Local storage is limited to SharedPreferences data such as settings,
+  favorites, history, playback state, and the last-known-good country list

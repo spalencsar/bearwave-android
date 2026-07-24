@@ -45,7 +45,8 @@ class RadioStation {
       uuid: json['uuid'] as String? ?? json['stationuuid'] as String?,
       name: json['name'] as String? ?? '',
       url: json['url'] as String? ?? '',
-      urlResolved: json['url_resolved'] as String? ?? json['url'] as String? ?? '',
+      urlResolved:
+          json['url_resolved'] as String? ?? json['url'] as String? ?? '',
       homepage: json['homepage'] as String?,
       favicon: json['favicon'] as String?,
       country: json['country'] as String?,
@@ -99,20 +100,25 @@ class RadioStation {
   }
 
   factory RadioStation.fromStorageJson(Map<String, dynamic> json) {
+    final url = json['url'] as String? ?? '';
+    final urlResolved =
+        json['urlResolved'] as String? ??
+        json['url_resolved'] as String? ??
+        url;
     return RadioStation(
-      uuid: json['uuid'] as String?,
+      uuid: json['uuid'] as String? ?? json['stationuuid'] as String?,
       name: json['name'] as String? ?? '',
-      url: json['url'] as String? ?? '',
-      urlResolved: json['urlResolved'] as String? ?? '',
+      url: url,
+      urlResolved: urlResolved.isNotEmpty ? urlResolved : url,
       homepage: json['homepage'] as String?,
       favicon: json['favicon'] as String?,
       country: json['country'] as String?,
       tags: json['tags'] as String?,
       codec: json['codec'] as String?,
-      bitrate: json['bitrate'] as int?,
-      votes: json['votes'] as int?,
-      isOnline: json['isOnline'] as bool?,
-      isFavorite: json['isFavorite'] as bool? ?? false,
+      bitrate: _asInt(json['bitrate']),
+      votes: _asInt(json['votes']),
+      isOnline: json['isOnline'] is bool ? json['isOnline'] as bool : null,
+      isFavorite: json['isFavorite'] == true,
     );
   }
 }

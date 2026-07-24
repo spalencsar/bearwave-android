@@ -21,7 +21,7 @@ Thank you for your interest in contributing to BearWave Android!
 ## Development Setup
 
 ### Prerequisites
-- Flutter SDK >= 3.38.4
+- Flutter SDK 3.44.6 (pinned in `.flutter-version`)
 - Dart SDK >= 3.12.1
 - Java 17 (JDK 17 OpenJDK recommended)
 - Android SDK (installed via `flutter doctor`)
@@ -100,8 +100,11 @@ Read `AGENTS.md` for detailed architecture documentation.
 ### Modifying the API
 1. Edit `lib/services/radio_browser_api.dart`
 2. Never hardcode individual servers — use `all.api.radio-browser.info`
-3. Follow the existing method pattern
-4. Test with `curl` first to verify the endpoint works
+3. Preserve dynamic DNS server discovery, hostname validation, transient
+   retry/failover, and the 10-second request timeout
+4. Follow the existing method pattern
+5. Add or update `radio_browser_api_test.dart`
+6. Test with `curl` first to verify the endpoint works
 
 ### Changing the Theme
 1. Edit color constants in `lib/theme/bearwave_theme.dart`
@@ -118,21 +121,29 @@ flutter test
 - Test on a real Android device when possible
 - Test with poor network conditions
 - Test with no network (should show error, not crash)
+- Test transient Radio Browser failures and the cached country fallback
+- Test country names/search in German, English, and Dutch
 - Test audio playback, pause, resume, stop
 - Test favorites (add, remove, persist across restart)
 - Test resume (last station should be restored)
-- Test Android Auto browsing, search, station start, and Now Playing on DHU and, when possible, a real car head unit
+- Test Android Auto browsing, search, station start, and Now Playing on DHU
+  and, when possible, a real car head unit
 - Test Google Cast discovery, connect, playback, stop, volume, and disconnect
 
 ### Android Auto Testing
-Real car head units can behave differently from Desktop Head Unit (DHU), especially for debug or shell-installed builds. For realistic local testing, build and install a release APK with installer attribution:
+Real car head units can behave differently from Desktop Head Unit (DHU),
+especially for debug or shell-installed builds. For realistic local testing,
+build and install a release APK with installer attribution:
 
 ```bash
 flutter build apk --release
 adb install -r -i com.android.vending build/app/outputs/flutter-apk/app-release.apk
 ```
 
-If Android Auto hangs while opening a station, capture logcat around the selection and inspect `BearWaveAudioHandler` callbacks: `getChildren()`, `prepareFromMediaId()`, `playFromMediaId()`, `playMediaItem()`, and `playFromSearch()`.
+If Android Auto hangs while opening a station, capture logcat around the
+selection and inspect `BearWaveAudioHandler` callbacks: `getChildren()`,
+`prepareFromMediaId()`, `playFromMediaId()`, `playMediaItem()`, and
+`playFromSearch()`.
 
 ## Submitting Changes
 
