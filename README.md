@@ -5,8 +5,9 @@ Flutter. It features a clean design inspired by the KDE desktop environment,
 full Android Auto integration, Google Cast support, and dynamic metadata/cover
 art loading.
 
-This is the official Android counterpart to the original Linux/KDE desktop
-version at https://github.com/spalencsar/bearwave.
+> [!CAUTION]
+> ### Development on Hold
+> Further development of this version of the Android app is currently on hold. The app remains available in its current state and can be used as usual. However, no new features or major updates are planned for the time being. This is the official Android counterpart to the original Linux/KDE desktop version at https://github.com/spalencsar/bearwave.
 
 [![License: GPL--3.0--or--later](https://img.shields.io/badge/license-GPL--3.0--or--later-lightgrey)](LICENSE)
 [![Flutter](https://img.shields.io/badge/Flutter-3.44.6-02569B)](https://flutter.dev)
