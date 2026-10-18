@@ -208,6 +208,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 ## License
 
 This project is licensed under the GNU GPL-3.0-or-later. See [LICENSE](LICENSE) for details.
+The GPL licensing of this repository applies exclusively to the source code. No rights of use pursuant to Section 31 of the German Copyright Act (UrhG) are granted for logos, trademarks, and graphics; all rights under the German Copyright Act (UrhG) and the German Trademark Act (MarkenG) are reserved.
 
 ## Credits
 
